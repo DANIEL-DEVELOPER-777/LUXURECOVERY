@@ -1,7 +1,4 @@
-// ─── REPLACE THIS VALUE ──────────────────────────────────────────────────────
-// Create a form at https://formspree.io and paste the form ID below.
-const FORMSPREE_ENDPOINT = "https://formspree.io/f/YOUR_FORM_ID";
-// ─────────────────────────────────────────────────────────────────────────────
+const FORMSPREE_ENDPOINT = "https://formspree.io/f/xreydrzr";
 
 export async function submitToFormspree(
   data: Record<string, unknown>
