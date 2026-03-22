@@ -1,17 +1,19 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
-import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
-import { useEffect } from "react";
 
 // ─── AdminSetPassword ─────────────────────────────────────────────────────────
-// This page is the landing spot for Supabase invite & password-reset emails.
-// Supabase appends #access_token=...&type=invite to the URL.
-// The supabase client picks up the hash automatically and fires onAuthStateChange.
+// Supabase invite/reset emails redirect here with a URL like:
+//   /admin/set-password#access_token=XXX&refresh_token=YYY&type=invite
+//
+// The onAuthStateChange event fires at client-init time (before this component
+// mounts), creating a race condition. We fix this by manually reading the hash
+// and calling supabase.auth.setSession() ourselves — no timing dependency.
 
 const AdminSetPassword = () => {
   const navigate = useNavigate();
   const [ready, setReady] = useState(false);
+  const [initError, setInitError] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
@@ -19,24 +21,46 @@ const AdminSetPassword = () => {
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    // The Supabase client auto-processes the URL hash (#access_token=...).
-    // If a session already exists (token was valid), mark as ready.
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) setReady(true);
-    });
+    const init = async () => {
+      // 1️⃣ Parse the hash fragment from the URL
+      const hash = window.location.hash.substring(1); // strip leading #
+      const params = new URLSearchParams(hash);
+      const accessToken = params.get("access_token");
+      const refreshToken = params.get("refresh_token") ?? "";
+      const type = params.get("type"); // 'invite' | 'recovery'
 
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (event: AuthChangeEvent, session: Session | null) => {
-        if (
-          (event === "SIGNED_IN" || event === "PASSWORD_RECOVERY") &&
-          session
-        ) {
+      if (accessToken && (type === "invite" || type === "recovery")) {
+        // 2️⃣ Establish the session explicitly — no race condition
+        const { data, error: sessionError } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+
+        if (sessionError) {
+          setInitError(sessionError.message);
+          return;
+        }
+
+        if (data.session) {
           setReady(true);
+          return;
         }
       }
-    );
 
-    return () => listener.subscription.unsubscribe();
+      // 3️⃣ Fallback — maybe client already handled the hash (fast environments)
+      const { data: existing } = await supabase.auth.getSession();
+      if (existing.session) {
+        setReady(true);
+        return;
+      }
+
+      // 4️⃣ Nothing worked — token missing or invalid
+      setInitError(
+        "This link is invalid or has already been used. Please request a new invite."
+      );
+    };
+
+    init();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -62,23 +86,10 @@ const AdminSetPassword = () => {
     }
 
     setSuccess(true);
-    setTimeout(() => navigate("/admin"), 2000);
+    setTimeout(() => navigate("/admin"), 1500);
   };
 
-  if (success) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center px-6">
-        <div className="text-center">
-          <div className="w-8 h-px bg-accent mx-auto mb-6" />
-          <h2 className="font-display font-light text-2xl mb-3">Password Set</h2>
-          <p className="font-body text-sm text-muted-foreground">
-            Redirecting to dashboard…
-          </p>
-        </div>
-      </div>
-    );
-  }
-
+  // ── Shared shell ──────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-6">
       <div className="w-full max-w-sm">
@@ -93,7 +104,24 @@ const AdminSetPassword = () => {
           <div className="w-8 h-px bg-accent mx-auto mt-6" />
         </div>
 
-        {!ready ? (
+        {/* States */}
+        {success ? (
+          <div className="text-center">
+            <p className="font-body text-sm text-muted-foreground">
+              Password set. Redirecting to dashboard…
+            </p>
+          </div>
+        ) : initError ? (
+          <div className="text-center space-y-4">
+            <p className="font-body text-sm text-red-500">{initError}</p>
+            <button
+              onClick={() => navigate("/admin/login")}
+              className="font-body font-medium uppercase tracking-[0.12em] text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Go to Login →
+            </button>
+          </div>
+        ) : !ready ? (
           <p className="font-body text-sm text-muted-foreground text-center tracking-widest uppercase animate-pulse">
             Verifying link…
           </p>
