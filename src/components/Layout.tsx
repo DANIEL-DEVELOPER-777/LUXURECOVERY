@@ -1,15 +1,16 @@
-import { ReactNode } from "react";
+import { Outlet } from "react-router-dom";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
 
-interface LayoutProps {
-  children: ReactNode;
-}
-
-const Layout = ({ children }: LayoutProps) => (
+// Layout wraps all public pages via React Router's <Outlet />.
+// Admin pages are registered outside this layout in App.tsx so they
+// get NO Navbar / Footer.
+const Layout = () => (
   <div className="min-h-screen flex flex-col">
     <Navbar />
-    <main className="flex-1">{children}</main>
+    <main className="flex-1">
+      <Outlet />
+    </main>
     <Footer />
   </div>
 );

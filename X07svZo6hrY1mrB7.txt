@@ -1,3 +1,0 @@
-godaddy
-app 1
-etc
