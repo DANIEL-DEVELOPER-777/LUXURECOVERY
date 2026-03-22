@@ -46,6 +46,7 @@ const AdminDashboard = () => {
   const [filter, setFilter] = useState<FormOrigin>("All");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Change-password modal
   const [showPwModal, setShowPwModal] = useState(false);
@@ -80,7 +81,7 @@ const AdminDashboard = () => {
     };
 
     fetchData();
-  }, [filter]);
+  }, [filter, refreshKey]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -120,6 +121,27 @@ const AdminDashboard = () => {
           <h1 className="font-display font-light text-lg">Admin Dashboard</h1>
         </div>
         <div className="flex items-center gap-4">
+          <button
+            onClick={() => setRefreshKey((k) => k + 1)}
+            disabled={loading}
+            title="Refresh submissions"
+            className="font-body font-medium uppercase tracking-[0.12em] text-[11px] text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40 flex items-center gap-1.5"
+          >
+            {/* Refresh icon — spins while loading */}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="13" height="13" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" strokeWidth="2"
+              strokeLinecap="round" strokeLinejoin="round"
+              className={loading ? "animate-spin" : ""}
+            >
+              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+              <path d="M21 3v5h-5" />
+              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+              <path d="M8 16H3v5" />
+            </svg>
+            Refresh
+          </button>
           <button
             onClick={() => { setShowPwModal(true); setPwMsg(null); }}
             className="font-body font-medium uppercase tracking-[0.12em] text-[11px] text-muted-foreground hover:text-foreground transition-colors"
